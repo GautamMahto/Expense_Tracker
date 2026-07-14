@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: expense
+      POSTGRES_PASSWORD: expense
+      POSTGRES_DB: expense_bot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expense"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  bot:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN:?set BOT_TOKEN in your environment or .env}
+      DATABASE_URL: postgresql+asyncpg://expense:expense@db:5432/expense_bot
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+    # Apply migrations, then start the bot.
+    command: sh -c "alembic upgrade head && python -m expense_bot.main"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
